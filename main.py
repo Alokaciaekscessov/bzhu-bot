@@ -5,8 +5,6 @@ from aiogram.types import Message, ReplyKeyboardMarkup, KeyboardButton, FSInputF
 from aiogram.filters import CommandStart
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
-
-# Функция из движка 
 from engine import calculate_nutrition, save_to_csv
 
 
@@ -23,6 +21,7 @@ class CalcStates(StatesGroup):
     waiting_for_gender = State()
     waiting_for_age = State()
     waiting_for_activity = State()
+    waiting_for_goal = State()
 
 def get_main_keyboard(): 
     button = KeyboardButton(text="Скачать CSV отчет")
@@ -96,30 +95,52 @@ async def process_activity(message: Message, state: FSMContext):
     elif "1.55" in message.text:
         coef = 1.55
     
+    await state.update_data(activity_coef=coef)
     
+    goal_kb = ReplyKeyboardMarkup(keyboard=[
+        [KeyboardButton(text="Похудение"), KeyboardButton(text="Поддержание"), KeyboardButton(text="Набор массы")]
+    ], resize_keyboard=True, one_time_keyboard=True)
     
+    await message.answer("Выберите вашу цель:", reply_markup=goal_kb)
+    await state.set_state(CalcStates.waiting_for_goal)
+
+
+@dp.message(CalcStates.waiting_for_goal)
+async def process_goal(message: Message, state: FSMContext):
+    if not message.text:
+        await message.answer("Пожалуйста выберите цель кнопками")
+        return 
+
+    goal = "поддержание"
+    if "Похудение" in message.text:
+        goal = "похудение"
+    elif "Набор" in message.text:
+        goal = "набор"  
+
     user_data = await state.get_data()
     age = user_data["age"]
     gender = user_data["gender"]
     weight = user_data["weight"]
     height = user_data["height"]
+    coef = user_data["activity_coef"]    
 
-    # Очистка памяти опроса
     await state.clear()
     results = calculate_nutrition(
         weight=weight, 
         height=height, 
         age=age, 
         gender=gender, 
-        activity_coef=coef
+        activity_coef=coef,
+        goal=goal
     )
 
-    save_to_csv(weight, height, results, CSV_FILENAME)
+    save_to_csv(weight, height, goal, results, CSV_FILENAME)
+
     response_text = (
-        f"Ваш результат \n"
+        f"Ваш результат под цель: {message.text}\n\n"
         f"Пол: {gender.capitalize()} | Возраст: {age} лет \n"
         f"Рост: {height} см | Вес: {weight} кг \n"
-        f"Суточная норма: {results['calories']} ккал \n"
+        f"Суточная норма: {results['calories']} ккал \n\n"
         f"Норма БЖУ: \n"
         f"Белки: {results['proteins']} г \n"
         f"Жиры: {results['fats']} г \n"

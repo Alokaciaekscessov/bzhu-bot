@@ -2,7 +2,7 @@ import csv
 import os 
  
 
-def calculate_nutrition(weight: float, height: float, age: int, gender: str, activity_coef: float) -> dict:
+def calculate_nutrition(weight: float, height: float, age: int, gender: str, activity_coef: float, goal: str) -> dict:
     # Суточная норма калорий и БЖУ
     # Формула Миффлина Сан Жеора
     if gender == "мужской":
@@ -13,11 +13,16 @@ def calculate_nutrition(weight: float, height: float, age: int, gender: str, act
     # Коофициент активности (AMR)
     calories = bmr * activity_coef
     
+    if goal == "Похудеть":
+       calories = calories * 0.85 
+    elif goal == "Набрать массу":
+       calories = calories * 1.15
+    
     # Расчет БЖУ (30 / 30 / 40)
     proteins = (calories * 0.30) / 4 
-    fats = (calories * 0.30) / 9
+    fats = (calories * 0.30) / 9    
     carbs = (calories * 0.40) / 4  
-     
+
     return {
         "calories": round(calories, 1), 
         "proteins": round(proteins, 1), 
@@ -26,10 +31,11 @@ def calculate_nutrition(weight: float, height: float, age: int, gender: str, act
     } 
 
 
-def save_to_csv(weight: float, height: float, nutrition: dict, filename: str = "result.csv"):
+def save_to_csv(weight: float, height: float, goal: str, nutrition: dict, filename: str = "result.csv"):
     # Таблица
     headers = ["Вес (кг)", "Рост (см)", "Калории (ккал)", "Белки (г)", "Жиры (г)", "Углеводы (г)"]
     row = [
+        goal.capitalize(),
         weight,
         height, 
         nutrition["calories"],
